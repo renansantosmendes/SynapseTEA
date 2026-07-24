@@ -1,11 +1,12 @@
 import os
 import logging
+import unicodedata
 from datetime import datetime
 from typing import List, Tuple, Optional
 from pathlib import Path
 
 import PyPDF2
-from pinecone import Pinecone
+from pinecone import Pinecone, ServerlessSpec
 
 # Import OpenAI embeddings from langchain_openai package with graceful fallback
 try:
@@ -39,6 +40,36 @@ MODEL_DIMENSIONS = {
     "text-embedding-3-large": 3072,
     "text-embedding-ada-002": 1536,
 }
+
+
+def _sanitize_filename(filename: str) -> str:
+    """Remove non-ASCII characters from filename for Pinecone vector IDs.
+
+    Args:
+        filename: Original filename with potential non-ASCII characters.
+
+    Returns:
+        Sanitized filename with only ASCII characters.
+    """
+    # Normalize Unicode characters (decompose accents)
+    normalized = unicodedata.normalize("NFKD", filename)
+    # Keep only ASCII characters
+    ascii_only = normalized.encode("ascii", "ignore").decode("ascii")
+    # Replace spaces and special chars with underscores
+    sanitized = "".join(c if c.isalnum() else "_" for c in ascii_only)
+    return sanitized
+
+
+def _is_zero_vector(vec: List[float]) -> bool:
+    """Check if a vector contains only zeros.
+
+    Args:
+        vec: Embedding vector to check.
+
+    Returns:
+        True if vector contains only zeros, False otherwise.
+    """
+    return all(v == 0.0 for v in vec)
 
 
 def _get_model_dimension(model_name: str) -> int:
@@ -175,6 +206,7 @@ def init_pinecone(
                 name=index_name,
                 dimension=dim,
                 metric="cosine",
+                spec=ServerlessSpec(cloud="aws", region="us-east-1"),
             )
         
         index = pc.Index(index_name)
@@ -248,13 +280,15 @@ def ingest_pdfs_to_pinecone(
     
     if embeddings is None:
         # Fallback: dummy embedding that returns zeros
-        logger.warning("Using dummy embeddings (returning zero vectors)")
-        class DummyEmbeddings:
-            def __init__(self, dim: int = 1536, **kwargs):
-                self.dim = dim
-            def embed_documents(self, docs: List[str]):
-                return [[0.0] * self.dim for _ in docs]
-        embeddings = DummyEmbeddings(dim=dim)
+        logger.error("CRITICAL: No embedding backend available! OpenAI embeddings failed to initialize.")
+        logger.error("Please check:")
+        logger.error("  1. OPENAI_API_KEY environment variable is set and valid")
+        logger.error("  2. langchain-openai package is installed (pip install langchain-openai)")
+        logger.error("  3. You have API credits available in your OpenAI account")
+        raise ValueError(
+            "Cannot ingest PDFs without a working embedding backend. "
+            "OpenAI embeddings failed to initialize. Check logs above for details."
+        )
     
     # Collect PDFs
     pdf_paths = collect_pdfs_from_folder(folder_path)
@@ -278,15 +312,28 @@ def ingest_pdfs_to_pinecone(
                         vec = embeddings.embed_documents([chunk])[0]
                         vec = _normalize_vector(vec, dim)
                         
+                        # Validate vector is not all zeros
+                        if _is_zero_vector(vec):
+                            logger.error(
+                                f"Vector contains only zeros for chunk from {pdf_path} "
+                                f"(page {page_num}, chunk {chunk_idx}). "
+                                "This indicates embedding backend is not working correctly. "
+                                "Check OPENAI_API_KEY and API connectivity."
+                            )
+                            continue
+                        
+                        filename = os.path.basename(pdf_path)
+                        sanitized_filename = _sanitize_filename(filename)
+                        
                         metadata = {
                             "text": chunk[:1000],  # Store only first 1000 chars in metadata
-                            "file": os.path.basename(pdf_path),
+                            "file": filename,
                             "page": int(page_num),
                             "chunk_idx": chunk_idx,
                             "created_at": datetime.utcnow().isoformat() + "Z",
                             "source": "PDF",
                         }
-                        vector_id = f"{os.path.basename(pdf_path)}_p{page_num}_c{chunk_idx}"
+                        vector_id = f"{sanitized_filename}_p{page_num}_c{chunk_idx}"
                         vectors_to_upsert.append((vector_id, vec, metadata))
                         stats["total_chunks"] += 1
                         
@@ -328,7 +375,7 @@ def ingest_pdfs_to_pinecone(
 
 if __name__ == "__main__":
     # Configuration variables
-    folder_path = r"C:\00 - Source Codes\SynapseTEA\data\pdfs"
+    folder_path = "C:\\Users\\renan\\Downloads\\data_synapse_tea"
     index_name = "synapse-tea-index"
     embedding_model = "text-embedding-3-large"
     embedding_backend = "openai"

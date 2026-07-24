@@ -1,0 +1,4 @@
+name: SynapseTEA RAG Frontend
+description: Local frontend to interact with the SynapseTEA RAG agent (Pinecone + OpenAI) via Chainlit.
+version: '0.1.0'
+entrypoint: app.py
