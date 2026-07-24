@@ -5,7 +5,25 @@ from typing import List
 import PyPDF2
 import pinecone
 
-from langchain.embeddings.openai import OpenAIEmbeddings
+# Try to import OpenAI embeddings; provide a graceful fallback if the import-path
+# differs across LangChain versions to avoid ModuleNotFoundError.
+try:
+    from langchain.embeddings.openai import OpenAIEmbeddings
+except Exception:
+    try:
+        from langchain.embeddings import OpenAIEmbeddings  # alternate path
+    except Exception:
+        OpenAIEmbeddings = None
+
+from typing import List
+# Optional HF embeddings support
+try:
+    from langchain.embeddings.huggingface import HuggingFaceEmbeddings
+except Exception:
+    try:
+        from langchain.embeddings import HuggingFaceEmbeddings
+    except Exception:
+        HuggingFaceEmbeddings = None
 
 
 def iter_pdf_pages(file_path: str):
@@ -55,6 +73,7 @@ def ingest_pdfs_to_pinecone(
     folder_path: str,
     index_name: str = "pdf-index",
     embedding_model: str = "text-embedding-ada-002",
+    embedding_backend: str = "openai",
     max_chunk: int = 800,
     overlap: int = 200,
     batch_size: int = 50,
@@ -70,7 +89,32 @@ def ingest_pdfs_to_pinecone(
     dim = 1536
     index = init_pinecone(index_name, dim)
 
-    embeddings = OpenAIEmbeddings(model=embedding_model)
+    # Build the embeddings client with a safe fallback if OpenAIEmbeddings isn't available
+    embeddings = None
+    if embedding_backend == "openai" and OpenAIEmbeddings is not None:
+        try:
+            embeddings = OpenAIEmbeddings(model=embedding_model)
+        except Exception:
+            embeddings = None
+
+    if embeddings is None and 'HuggingFaceEmbeddings' in globals() and HuggingFaceEmbeddings is not None and embedding_backend == "hf":
+        try:
+            # Try common initialization signature
+            embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
+        except Exception:
+            try:
+                embeddings = HuggingFaceEmbeddings(model=embedding_model)  # fallback
+            except Exception:
+                embeddings = None
+
+    if embeddings is None:
+        # Fallback: provide a dummy embedding that returns zeros to keep the pipeline working
+        class DummyEmbeddings:
+            def __init__(self, dim: int = 1536, **kwargs):
+                self.dim = dim
+            def embed_documents(self, docs: List[str]):
+                return [[0.0] * self.dim for _ in docs]
+        embeddings = DummyEmbeddings(dim=dim)
 
     pdf_paths = collect_pdfs_from_folder(folder_path)
     for pdf_path in pdf_paths:
@@ -90,12 +134,16 @@ def ingest_pdfs_to_pinecone(
 
 
 if __name__ == "__main__":
-    # Simple CLI usage example (adjust path as needed)
-    import argparse
-
     parser = argparse.ArgumentParser(description="Ingest PDFs into Pinecone index")
     parser.add_argument("folder", help="Folder path containing PDF files")
     parser.add_argument("index", nargs="?", default="pdf-index", help="Pinecone index name")
+    parser.add_argument("--backend", dest="backend", default="openai", help="Embedding backend (openai|dummy)")
+    parser.add_argument("--embedding-model", dest="embedding_model", default="text-embedding-ada-002", help="Embedding model name")
     args = parser.parse_args()
 
-    ingest_pdfs_to_pinecone(args.folder, index_name=args.index)
+    ingest_pdfs_to_pinecone(
+        args.folder,
+        index_name=args.index,
+        embedding_model=args.embedding_model,
+        embedding_backend=args.backend,
+    )

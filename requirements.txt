@@ -2,5 +2,5 @@
 langchain
 openai
 PyPDF2>=3.0.0
-pinecone-client>=2.2.1
+pinecone
 pydantic>=2
