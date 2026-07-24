@@ -1,0 +1,6 @@
+# Runtime dependencies for SynapseTEA data processing
+langchain
+openai
+PyPDF2>=3.0.0
+pinecone-client>=2.2.1
+pydantic>=2
