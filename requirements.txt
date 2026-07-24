@@ -18,3 +18,5 @@ deepagents>=0.0.20
 
 # Frontend dependencies for Chainlit
 chainlit>=0.6.0
+
+langfuse

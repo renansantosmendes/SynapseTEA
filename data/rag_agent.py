@@ -5,12 +5,16 @@ and retrieval from the synapse-tea-index Pinecone database.
 """
 
 import os
+import sys
 import json
+import uuid
 import logging
 from typing import Any, Literal
 
 from pinecone import Pinecone
 from langchain_openai import OpenAIEmbeddings
+from langfuse import Langfuse
+from langfuse.langchain import CallbackHandler
 from dotenv import load_dotenv
 
 # Try importing deepagents, with helpful error message if not available
@@ -29,7 +33,8 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-
+langfuse_handler = CallbackHandler()
+langfuse = Langfuse()
 
 class PineconeRAGTools:
     """Container for RAG tools that query Pinecone."""
@@ -208,7 +213,7 @@ class PineconeRAGTools:
 def create_rag_agent(
     index_name: str = "synapse-tea-index",
     embedding_model: str = "text-embedding-3-large",
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-5-nano",
 ):
     """Create an agent with RAG tools.
 
@@ -225,20 +230,14 @@ def create_rag_agent(
 
     # Create agent using create_deep_agent with direct callable tools
     agent = create_deep_agent(
-        name="SynapseTEA RAG Agent",
+        name="SynapseTEA_RAG_Agent",
         model=model,
         tools=[
             rag_tools.search_documents,
             rag_tools.retrieve_context,
             rag_tools.get_document_info,
         ],
-        system_prompt=(
-            "Você é um assistente de IA útil e conversacional especializado em documentos médicos e terapêuticos. "
-            "Responda de forma natural e em português quando o usuário escrever em português; adapte o tom ao usuário (claro, conciso e empático). "
-            "Responda diretamente sempre que possível com seu conhecimento interno. Só consulte ferramentas externas (search_documents, retrieve_context, get_document_info) quando for realmente necessário para obter evidências ou dados factuais do banco de documentos. "
-            "Antes de chamar uma ferramenta, avalie se a busca é necessária para evitar buscas desnecessárias e alucinações. Se chamar uma ferramenta, use a saída apenas internamente para formar a resposta final — NÃO retorne a saída bruta das ferramentas ao usuário. "
-            "Sempre entregue uma resposta final concisa em texto simples. Se usar fontes, cite-as de forma breve no final da resposta (ex.: [Avaliação_ABC.pdf, p.3]). Se não souber, admita honestamente e sugira próximos passos práticos."
-        ),
+        system_prompt=langfuse.get_prompt("TEA_AGENT_PROMPT").prompt,
     )
 
     logger.info(f"Created RAG Agent with model: {model}")
@@ -246,24 +245,29 @@ def create_rag_agent(
 
 
 if __name__ == "__main__":
-    # Test the RAG tools directly
-    rag_tools = PineconeRAGTools()
+   
+    agent = create_rag_agent()
+    question = "Qual é a conclusão da avaliação fonoaudiológica do paciente Antonio Damasceno?"
+    print("Question:", question)
+    messages = [
+        {"role": "system", "content": "Responda em português e, se necessário, use as ferramentas internas para recuperar evidências dos documentos. Retorne somente a resposta final."},
+        {"role": "user", "content": question},
+    ]
+    thread_id = str(uuid.uuid4()) 
+    config = {
+        "configurable": {"thread_id": thread_id},
+        "callbacks": [langfuse_handler],
+        "metadata": {
+            "langfuse_session_id": thread_id,
+            "langfuse_tags": ["synapse-tea", "rag-agent", "pinecone"],
+        },
+    }
 
-    # Test search
-    print("=" * 60)
-    print("Testing search_documents tool:")
-    print("=" * 60)
-    results = rag_tools.search_documents("avaliação de fonoaudiologia", top_k=3)
-    try:
-        print(results)
-    except UnicodeEncodeError:
-        print("Results retrieved successfully (contains special characters)")
+    result = agent.invoke(
+        {
+            "messages": messages},
+            config=config
+        )
+    print(result)
+    
 
-    print("\n" + "=" * 60)
-    print("Testing retrieve_context tool:")
-    print("=" * 60)
-    context = rag_tools.retrieve_context("terapia ocupacional", top_k=2)
-    try:
-        print(context)
-    except UnicodeEncodeError:
-        print("Context retrieved successfully (contains special characters)")

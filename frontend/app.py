@@ -255,7 +255,8 @@ async def on_message(message):
             messages.append({"role": "system", "content": "Use o contexto fornecido a seguir apenas se for necessário para responder; não retorne o contexto bruto, apenas use-o internamente e cite fontes se usadas."})
             messages.append({"role": "user", "content": text})
             if context:
-                messages.append({"role": "tool_context", "content": context})
+                # inject context as a system message with a clear header
+                messages.append({"role": "system", "content": "Context for question:\n" + context})
 
             # Call the agent preferring messages payload
             try:
