@@ -17,6 +17,12 @@ import os
 from deepagents import create_deep_agent
 
 from langchain_tools import ALL_TOOLS
+from pubmed_tool import search_pubmed
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
+ 
+AGENT_TOOLS = ALL_TOOLS + [search_pubmed]
 
 
 INSTRUCTIONS = """Você é um assistente clínico que ajuda a acompanhar a evolução de um paciente em
@@ -43,7 +49,7 @@ evitando floreios."""
 def build_agent():
     return create_deep_agent(
         model="openai:gpt-5-nano",
-        tools=ALL_TOOLS,
+        tools=AGENT_TOOLS,
         system_prompt=INSTRUCTIONS,
     )
 
@@ -52,12 +58,7 @@ if __name__ == "__main__":
     agent = build_agent()
 
     test_questions = [
-        "Me dá um resumo geral do paciente.",
-        "Como está a evolução do domínio 'Regulação Emocional' ao longo do tempo?",
-        "O que os terapeutas notaram sobre dificuldade com barulhos ou sons altos?",
-        "Compare as observações de todas as disciplinas entre 01/06/2025 e 30/06/2025.",
-        "Cruzando a tendência do domínio 'Comunicação Expressiva' com o que os terapeutas "
-        "relataram qualitativamente sobre isso, o que você recomendaria focar nas próximas semanas?",
+        "Existe evidência científica sobre o uso do hiperfoco como estratégia terapêutica em crianças com TEA?",
     ]
 
     for q in test_questions:
