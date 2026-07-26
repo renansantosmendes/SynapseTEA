@@ -15,6 +15,7 @@ from pinecone import Pinecone
 from langchain_openai import OpenAIEmbeddings
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from dotenv import load_dotenv
 
 # Try importing deepagents, with helpful error message if not available
@@ -69,12 +70,12 @@ class PineconeRAGTools:
             logger.error(f"Failed to initialize RAG tools: {e}")
             raise
 
-    def search_documents(self, query: str, top_k: int = 5) -> str:
+    def search_documents(self, query: str, top_k: int = 10) -> str:
         """Search for relevant documents in the knowledge base.
 
         Args:
             query: The search query in natural language.
-            top_k: Number of top results to return (default: 5).
+            top_k: Number of top results to return (default: 10).
 
         Returns:
             JSON string with search results containing document chunks and metadata.
@@ -214,6 +215,7 @@ def create_rag_agent(
     index_name: str = "synapse-tea-index",
     embedding_model: str = "text-embedding-3-large",
     model: str = "gpt-5-nano",
+    checkpointer: BaseCheckpointSaver | bool | None = None,
 ):
     """Create an agent with RAG tools.
 
@@ -238,6 +240,7 @@ def create_rag_agent(
             rag_tools.get_document_info,
         ],
         system_prompt=langfuse.get_prompt("TEA_AGENT_PROMPT").prompt,
+        checkpointer=checkpointer
     )
 
     logger.info(f"Created RAG Agent with model: {model}")

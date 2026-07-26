@@ -218,3 +218,17 @@ __marimo__/
 .streamlit/secrets.toml
 
 .chainlit/
+
+# SQLite database files
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+
+# Local database directories
+db/
+database/

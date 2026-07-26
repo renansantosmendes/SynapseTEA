@@ -16,6 +16,7 @@ from .core import (
     Evaluation,
     IEP,
     ATSupervisionSession,
+    PatientRecord,
 )
 
 # Backwards-compatibility alias: some code may import AT*SupervisionSession
@@ -42,4 +43,5 @@ __all__ = [
     "Evaluation",
     "IEP",
     "ATSupervisionSession",
+    "PatientRecord",
 ]

@@ -4,14 +4,15 @@ from enum import Enum
 
 
 class AcquisitionStatus(str, Enum):
-    """Tracks whether a therapeutic goal has been achieved."""
-    ACQUIRED = "ADQUIRIDO"
+    """Status de aquisição de um objetivo terapêutico ou habilidade acompanhada ao longo do tempo."""
+    ACQUIRED = "Adquirido"
     IN_PROGRESS = "Em progresso"
     NOT_STARTED = "Não iniciado"
+    REGRESSED = "Regrediu"
 
 
 class TherapyType(str, Enum):
-    """Types of therapeutic disciplines involved in the treatment plan."""
+    """Disciplina/especialidade envolvida no plano de tratamento multidisciplinar."""
     SPEECH_LANGUAGE = "Fonoaudiologia"
     OCCUPATIONAL = "Terapia Ocupacional"
     PHYSIOTHERAPY = "Fisioterapia"
@@ -22,7 +23,7 @@ class TherapyType(str, Enum):
 
 
 class DomainArea(str, Enum):
-    """Developmental domain areas addressed in the IEP (Plano de Ensino)."""
+    """Área de domínio de desenvolvimento trabalhada no Plano de Ensino Individualizado (PEI)."""
     RECEPTIVE_COMMUNICATION = "Comunicação Receptiva"
     EXPRESSIVE_COMMUNICATION = "Comunicação Expressiva"
     SOCIAL_COMPETENCIES = "Competências Sociais"
@@ -32,10 +33,11 @@ class DomainArea(str, Enum):
     SENSORY_PROCESSING = "Processamento Sensorial"
     DAILY_LIVING_ACTIVITIES = "Atividades de Vida Diária"
     EMOTIONAL_REGULATION = "Regulação Emocional"
+    PLAY_SKILLS = "Habilidades de Brincar"
 
 
 class SensoryModality(str, Enum):
-    """Sensory channels relevant to the patient's sensory profile."""
+    """Canal sensorial relevante para o perfil sensorial do paciente."""
     TACTILE = "Tátil"
     PROPRIOCEPTIVE = "Proprioceptivo"
     VESTIBULAR = "Vestibular"

@@ -20,3 +20,6 @@ deepagents>=0.0.20
 chainlit>=0.6.0
 
 langfuse
+langgraph-checkpoint-sqlite 
+langchain-text-splitters
+pdflumber
